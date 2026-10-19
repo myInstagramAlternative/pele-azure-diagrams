@@ -1,0 +1,15 @@
+{
+  "name": "pele-azure-diagrams",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Azure architecture diagrams rendered with Pele and local Microsoft Azure icons",
+  "scripts": {
+    "render": "node render-azure.js",
+    "check": ".opencode/skills/find-missing-diagrams/scripts/find-missing-diagrams.sh"
+  },
+  "license": "MIT",
+  "devDependencies": {
+    "@resvg/resvg-js": "2.6.2",
+    "pele": "1.6.0"
+  }
+}

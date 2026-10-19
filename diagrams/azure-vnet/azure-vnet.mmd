@@ -1,0 +1,44 @@
+---
+config:
+  architecture:
+    iconSize: 64
+---
+architecture-beta
+    title VNet egress via Azure Firewall (UDR 0.0.0.0/0)
+    group vnet(azure:vnet)[VNet 10.0.0.0/16]
+
+    group pcsub[Cloud PC subnet 10.0.1.0/24] in vnet
+      service pc(azure:cloudpc)[Cloud PC] in pcsub
+
+    group casub[Container Apps subnet 10.0.3.0/23] in vnet
+      service ca(azure:container-apps)[Container Apps] in casub
+
+    group pesub[Private endpoints subnet 10.0.2.0/24] in vnet
+      service pesql(azure:sql)[SQL PE] in pesub
+      service pest(azure:storage)[Storage PE] in pesub
+      service peacr(azure:acr)[ACR PE] in pesub
+
+    group fwsub[AzureFirewallSubnet 10.0.4.0/26] in vnet
+      service fw(azure:firewall)[Azure Firewall] in fwsub
+
+    service pip(azure:public-ip)[Public IP]
+    service internet(internet)[Internet]
+    service users(users)[Users]
+
+    service sql(azure:sql)[Azure SQL]
+    service storage(azure:storage)[Storage account]
+    service acr(azure:acr)[ACR]
+
+    users:R --> L:pc
+    pc:R --> L:fw
+    ca:R --> L:fw
+    fw:R --> L:pip
+    pip:R --> L:internet
+
+    ca{group}:B --> T:pesql{group}
+    pesql:R --> L:sql
+    pest:R --> L:storage
+    peacr:R --> L:acr
+
+    align column pesql pest peacr
+    align column pc ca
