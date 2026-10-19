@@ -2,7 +2,7 @@
 /**
  * Render Azure architecture diagrams with Pele + local Microsoft Azure icons.
  *
- * Every diagram lives in its own folder under diagrams/:
+ * Your diagrams live in diagrams/, one folder per diagram:
  *
  *   diagrams/<id>/<id>.mmd        source (Mermaid, Pele syntax)
  *   diagrams/<id>/<id>.svg        rendered, uses Pele CSS variables (themable)
@@ -10,8 +10,14 @@
  *   diagrams/<id>/<id>.png        raster preview
  *
  * Usage:
- *   node render-azure.js              # render every diagram in diagrams/
- *   node render-azure.js azure-vnet   # render only diagrams/azure-vnet/
+ *   node render-azure.js                    # render every diagram in diagrams/
+ *   node render-azure.js azure-vnet         # render one diagram by id
+ *   node render-azure.js --png <file.mmd>   # write only the .png
+ *
+ * --png is for documentation images. examples/diagrams/ is not a render target;
+ * regenerate the example image with:
+ *
+ *   node render-azure.js --png examples/diagrams/azure-vnet/azure-vnet.mmd
  *
  * Icons are read from azure-icons/ and mapped by the `azure:*` names used in
  * the diagram source. Add an entry to `files` when you add a new icon.
@@ -24,6 +30,8 @@ const { Resvg } = require('@resvg/resvg-js');
 const ROOT = __dirname;
 const ICON_DIR = path.join(ROOT, 'azure-icons');
 const DIAGRAMS_DIR = path.join(ROOT, 'diagrams');
+
+const ALL_OUTPUTS = ['svg', 'flat.svg', 'png'];
 
 // Icon name -> file in azure-icons/. Names are arbitrary; `azure:` is a prefix,
 // not a namespace Pele knows about, so any missing name is handed to this resolver.
@@ -101,29 +109,36 @@ function flatten(svg) {
 }
 
 /**
- * Render diagram source and write the outputs into `folder`:
- * `<id>.svg`, `<id>.flat.svg`, and `<id>.png`. Returns Pele's result.
+ * Render diagram source and write `outputs` into `folder`. Recognised outputs
+ * are 'svg', 'flat.svg', and 'png'. Returns Pele's result.
  */
-function renderSource(source, folder, id) {
+function renderSource(source, folder, id, outputs = ALL_OUTPUTS) {
   const result = render(source, { icons });
-  fs.writeFileSync(path.join(folder, `${id}.svg`), result.svg);
+
+  if (outputs.includes('svg')) {
+    fs.writeFileSync(path.join(folder, `${id}.svg`), result.svg);
+  }
 
   const flat = flatten(result.svg);
-  fs.writeFileSync(path.join(folder, `${id}.flat.svg`), flat);
+  if (outputs.includes('flat.svg')) {
+    fs.writeFileSync(path.join(folder, `${id}.flat.svg`), flat);
+  }
 
-  const png = new Resvg(flat, {
-    fitTo: { mode: 'width', value: Math.min(result.width * 2, 2000) },
-    background: 'white',
-  })
-    .render()
-    .asPng();
-  fs.writeFileSync(path.join(folder, `${id}.png`), png);
+  if (outputs.includes('png')) {
+    const png = new Resvg(flat, {
+      fitTo: { mode: 'width', value: Math.min(result.width * 2, 2000) },
+      background: 'white',
+    })
+      .render()
+      .asPng();
+    fs.writeFileSync(path.join(folder, `${id}.png`), png);
+  }
 
   console.log(`rendered ${id} (${result.type}, ${result.width}x${result.height})`);
   return result;
 }
 
-function renderOne(mmdPath) {
+function renderOne(mmdPath, outputs) {
   const source = fs.readFileSync(mmdPath, 'utf8');
   const folder = path.dirname(mmdPath);
   const id = path.basename(mmdPath, '.mmd');
@@ -132,7 +147,7 @@ function renderOne(mmdPath) {
   if (path.basename(folder) !== id) {
     console.warn(`warning: ${path.relative(ROOT, mmdPath)} is not in a folder named "${id}"`);
   }
-  return renderSource(source, folder, id);
+  return renderSource(source, folder, id, outputs);
 }
 
 /** Resolve CLI arguments to .mmd files: ids, folders, or explicit paths. */
@@ -157,11 +172,21 @@ function targets(args) {
   });
 }
 
-function main(args) {
+function main(argv) {
+  const flags = new Set(argv.filter((arg) => arg.startsWith('--')));
+  const args = argv.filter((arg) => !arg.startsWith('--'));
+
+  const unknown = [...flags].filter((flag) => flag !== '--png');
+  if (unknown.length > 0) {
+    console.error(`Unknown option: ${unknown.join(', ')}`);
+    return 1;
+  }
+  const outputs = flags.has('--png') ? ['png'] : ALL_OUTPUTS;
+
   const list = targets(args);
   if (list.length === 0) {
-    console.error('No diagrams found. Add diagrams/<id>/<id>.mmd, or pass a diagram id.');
-    return 1;
+    console.log('No diagrams found in diagrams/. Add diagrams/<id>/<id>.mmd.');
+    return 0;
   }
 
   let failed = 0;
@@ -172,7 +197,7 @@ function main(args) {
       continue;
     }
     try {
-      renderOne(mmd);
+      renderOne(mmd, outputs);
     } catch (error) {
       failed++;
       if (error instanceof PeleError) {

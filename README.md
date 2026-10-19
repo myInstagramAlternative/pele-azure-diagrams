@@ -7,31 +7,43 @@ to SVG with [Pele](https://github.com/obsidianmd/pele), using official Microsoft
 Azure icons supplied through a small local icon resolver. No online service is
 involved: the source and the rendered output both live in this repo.
 
-![Azure VNet egress via Azure Firewall](diagrams/azure-vnet/azure-vnet.png)
+![Azure VNet egress via Azure Firewall](examples/diagrams/azure-vnet/azure-vnet.png)
 
-## Convention: one diagram per folder
+## Where diagrams live
 
-**Every diagram must be written and rendered in its own folder.** Do not drop
-`.mmd` files at the repo root or mix several diagrams in one directory.
+**Your diagrams go in `diagrams/`, one folder per diagram.** That is what
+`npm run render` and `npm run check` operate on.
 
 ```text
 diagrams/
 └── <id>/
-    ├── <id>.mmd        source - the only file you edit by hand
-    ├── <id>.svg        rendered, uses Pele CSS variables (themable)
-    ├── <id>.flat.svg   rendered, colors inlined (standalone)
-    └── <id>.png        raster preview for docs and chat
+    ├── <id>.mmd          source - the only file you edit by hand
+    ├── <id>.svg          rendered, uses Pele CSS variables (themable)
+    ├── <id>.flat.svg     rendered, colors inlined (standalone)
+    └── <id>.png          raster preview for docs and chat
+```
+
+`examples/diagrams/azure-vnet/` is documentation: it holds the source and the
+image used at the top of this README. It is not part of the render or check run.
+To rebuild that image, render it explicitly, PNG only, so the intermediate
+`.svg`/`.flat.svg` are not written into the docs folder:
+
+```sh
+node render-azure.js --png examples/diagrams/azure-vnet/azure-vnet.mmd
 ```
 
 Rules:
 
-- The folder name and the file basename must match the diagram id, e.g.
-  `diagrams/azure-vnet/azure-vnet.mmd`.
+- Every diagram lives in its own folder, and the folder name and file basename
+  must match the diagram id, e.g. `diagrams/azure-vnet/azure-vnet.mmd`.
 - Exactly one `.mmd` source per folder.
 - Rendered files are generated. Do not edit them by hand; edit the `.mmd` and
   re-render.
 - Commit the source **and** the rendered files, so the diagram is reviewable
   without running anything.
+
+If you would rather keep your own diagrams out of this repo's history, add
+`diagrams/` to `.gitignore`.
 
 ## Quick start
 
@@ -49,9 +61,11 @@ Both renderer dependencies are **dev-only and pinned to exact versions**
 a render is reproducible. `.npmrc` sets `save-exact=true` to keep new installs
 pinned too. Use `npm ci` rather than `npm install` so the lockfile is honored.
 
-`npm run check` is what the local `find-missing-diagrams` skill runs. It exits
-non-zero when a source has no render (missing), a render is older than its
-source (stale), or a render has no source (orphan).
+`npm run check` is what the local `find-missing-diagrams` skill runs. It scans
+`diagrams/` and exits non-zero when a source has no render (missing), a render
+is older than its source (stale), or a render has no source (orphan). The
+shipped example is deliberately not checked, so a fresh clone never fails the
+check because of files it does not own.
 
 ## Creating a diagram
 
@@ -75,7 +89,8 @@ source (stale), or a render has no source (orphan).
    ```
 
 The renderer writes `<id>.svg`, `<id>.flat.svg`, and `<id>.png` next to the
-`.mmd`.
+`.mmd`. To base a diagram on the shipped example, copy
+`examples/diagrams/azure-vnet/` into `diagrams/` and edit the copy.
 
 ## Writing the source
 
@@ -171,15 +186,16 @@ name in the label next to the icon, which this repo's diagrams do.
 
 Project-local agent skills live in `.opencode/skills/`:
 
-- **`find-missing-diagrams`** - checks that every `diagrams/<id>/` folder is
-  complete and fresh. Run it directly, or via `npm run check`:
+- **`find-missing-diagrams`** - checks that every diagram folder under
+  `diagrams/` is complete and fresh. Run it directly, or via `npm run check`:
 
   ```sh
   .opencode/skills/find-missing-diagrams/scripts/find-missing-diagrams.sh
   ```
 
   It reports missing outputs, stale outputs, orphan outputs, and stray `.mmd`
-  files outside `diagrams/`, then tells you which id to re-render.
+  files outside the known roots, then tells you which id to re-render. Pass a
+  root (for example `examples/diagrams`) to check something else.
 
 These are local to this repo. They are not installed globally and do not affect
 other projects.
@@ -190,7 +206,8 @@ other projects.
 | --- | --- |
 | `render-azure.js` | Renderer: Mermaid -> SVG -> PNG, with the Azure icon resolver |
 | `azure-icons/` | Shared Microsoft Azure SVG assets |
-| `diagrams/` | One folder per diagram (source + renders) |
+| `diagrams/` | Your diagrams (one folder per diagram) |
+| `examples/diagrams/azure-vnet/` | Example source + README image (documentation) |
 | `.opencode/skills/find-missing-diagrams/` | Local skill + script for finding incomplete diagrams |
 | `package.json`, `package-lock.json`, `.npmrc` | Pinned dev toolchain (`npm ci`) |
 
@@ -202,6 +219,8 @@ other projects.
 - `pele` renders the SVG. `@resvg/resvg-js` is only used to produce the PNG: it
   does not resolve CSS custom properties, which is why the `.flat.svg` variant
   has Pele's colors inlined. `render-azure.js` does that inlining.
+- `node render-azure.js --png <file.mmd>` writes only the raster. It exists for
+  documentation images such as the README example.
 - Pele renders everything synchronously and has no runtime dependencies, so the
   renderer is a single small Node script.
 - `pele` is an independent renderer, not Mermaid itself: it has its own layout
