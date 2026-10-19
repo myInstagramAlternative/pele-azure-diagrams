@@ -99,6 +99,13 @@ architecture-beta
     fw:R --> L:pip
 ```
 
+> The `azure:*` icon names only resolve through this repo's renderer
+> (`render-azure.js`). A plain Mermaid viewer - GitHub, VS Code, Obsidian,
+> mermaid.live - has no Azure icon pack registered, so it falls back to a `?`
+> placeholder for every icon. If you need a snippet that renders its icons
+> anywhere, use Mermaid's built-in names (`cloud`, `database`, `disk`,
+> `internet`, `server`).
+
 Tips that matter for readable output:
 
 - Set icon size with frontmatter so labels do not wrap:
